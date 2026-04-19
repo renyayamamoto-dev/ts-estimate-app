@@ -1,0 +1,999 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>TS計算・書類作成</title>
+  <style>
+    /* ===== APP ===== */
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    body { font-family: 'Hiragino Sans','Meiryo',sans-serif; background:#f0f4f8; color:#2d3748; min-height:100vh; padding:20px 14px 40px; }
+    h1 { text-align:center; font-size:1.4rem; margin-bottom:20px; color:#2b6cb0; }
+    .card { background:#fff; border-radius:12px; box-shadow:0 2px 8px rgba(0,0,0,.08); padding:18px; margin-bottom:16px; max-width:800px; margin-left:auto; margin-right:auto; }
+    .card h2 { font-size:.95rem; color:#4a5568; margin-bottom:14px; border-bottom:2px solid #ebf4ff; padding-bottom:8px; }
+    .row2 { display:flex; gap:10px; flex-wrap:wrap; }
+    .row2 > * { flex:1; min-width:140px; }
+    .field-label { font-size:.8rem; color:#718096; margin-bottom:4px; }
+    .field-input { width:100%; padding:8px 10px; border:1px solid #cbd5e0; border-radius:8px; font-size:.9rem; outline:none; }
+    .field-input:focus { border-color:#4299e1; }
+
+    /* 種別ボタン */
+    .type-row { display:flex; gap:10px; align-items:center; flex-wrap:wrap; }
+    .type-btn { flex:1; min-width:130px; padding:10px; border:2px solid #cbd5e0; border-radius:8px; background:#f7fafc; font-size:.9rem; font-weight:600; cursor:pointer; text-align:center; transition:all .15s; color:#4a5568; }
+    .type-btn.active-sweep { border-color:#4299e1; background:#ebf4ff; color:#2b6cb0; }
+    .type-btn.active-mop   { border-color:#48bb78; background:#f0fff4; color:#276749; }
+
+    /* テーブル */
+    .tbl-wrap { overflow-x:auto; }
+    table { width:100%; border-collapse:collapse; font-size:.82rem; }
+    th { background:#ebf4ff; color:#2b6cb0; padding:7px 5px; text-align:center; font-weight:600; white-space:nowrap; }
+    td { padding:5px 4px; text-align:center; border-bottom:1px solid #e2e8f0; vertical-align:middle; }
+    td input[type="text"], td input[type="number"] { width:100%; padding:5px 4px; border:1px solid #cbd5e0; border-radius:6px; font-size:.82rem; text-align:center; outline:none; }
+    td input:focus { border-color:#4299e1; }
+    td select { width:100%; padding:4px 3px; border:1px solid #cbd5e0; border-radius:6px; font-size:.8rem; outline:none; background:#fff; }
+    .other-input { width:100%; margin-top:3px; padding:4px 6px; border:1px solid #4299e1; border-radius:6px; font-size:.78rem; outline:none; background:#ebf8ff; }
+    .ts-val { font-weight:700; color:#2b6cb0; white-space:nowrap; }
+    .manual-btn { font-size:.68rem; padding:3px 6px; border:1px solid #cbd5e0; border-radius:5px; background:#f7fafc; color:#718096; cursor:pointer; display:block; margin:2px auto 0; white-space:nowrap; }
+    .manual-btn.on { border-color:#ed8936; background:#fffaf0; color:#c05621; font-weight:600; }
+    .ts-manual-input { width:100%; padding:4px; border:2px solid #ed8936; border-radius:6px; font-size:.82rem; font-weight:700; text-align:center; color:#c05621; outline:none; background:#fffaf0; }
+    .task-btn { font-size:.68rem; padding:3px 6px; border:1px solid #9f7aea; border-radius:5px; background:#faf5ff; color:#553c9a; cursor:pointer; white-space:nowrap; }
+    .task-btn.has-tasks { background:#805ad5; color:#fff; border-color:#805ad5; }
+    .del-btn { background:#fed7d7; color:#c53030; border:none; border-radius:6px; padding:4px 8px; cursor:pointer; font-size:.78rem; }
+    .del-btn:hover { background:#fc8181; color:#fff; }
+    .add-btn { display:block; margin:12px auto 0; background:#ebf4ff; color:#2b6cb0; border:2px dashed #4299e1; border-radius:8px; padding:9px 20px; cursor:pointer; font-size:.9rem; font-weight:600; width:100%; }
+    .add-btn:hover { background:#bee3f8; }
+
+    /* 作業パネル */
+    .task-panel { background:#faf5ff; border-top:1px solid #e9d8fd; padding:10px 12px; }
+    .task-panel-head { display:flex; align-items:center; justify-content:space-between; margin-bottom:8px; }
+    .task-panel-head span { font-size:.8rem; font-weight:600; color:#553c9a; }
+    .bulk-freq-btn { font-size:.75rem; padding:4px 10px; background:#805ad5; color:#fff; border:none; border-radius:6px; cursor:pointer; }
+    .task-grid { display:grid; grid-template-columns:repeat(auto-fill,minmax(180px,1fr)); gap:6px; }
+    .task-item { display:flex; flex-direction:column; gap:3px; }
+    .task-item label { font-size:.72rem; color:#4a5568; font-weight:600; }
+    .task-item select { padding:4px; border:1px solid #d6bcfa; border-radius:5px; font-size:.78rem; background:#fff; outline:none; }
+    .task-free { padding:3px 5px; border:1px solid #9f7aea; border-radius:5px; font-size:.75rem; background:#faf5ff; outline:none; margin-top:2px; }
+
+    /* 結果 */
+    .result-grid { display:grid; grid-template-columns:repeat(auto-fit,minmax(160px,1fr)); gap:12px; }
+    .result-box { background:#f7fafc; border-radius:10px; padding:12px; text-align:center; }
+    .result-box .lbl { font-size:.72rem; color:#718096; margin-bottom:4px; }
+    .result-box .val { font-size:1.2rem; font-weight:700; color:#2b6cb0; }
+    .result-box.hl { background:#2b6cb0; }
+    .result-box.hl .lbl { color:#bee3f8; }
+    .result-box.hl .val { color:#fff; font-size:1.4rem; }
+    .result-box.hl2 { background:#276749; }
+    .result-box.hl2 .lbl { color:#9ae6b4; }
+    .result-box.hl2 .val { color:#fff; font-size:1.4rem; }
+
+    /* 費用 */
+    .wage-row { display:flex; gap:10px; align-items:center; flex-wrap:wrap; margin-bottom:14px; }
+    .wage-row label { font-size:.9rem; font-weight:600; white-space:nowrap; }
+    .wage-row input { flex:1; min-width:120px; padding:8px 10px; border:1px solid #cbd5e0; border-radius:8px; font-size:1rem; outline:none; }
+
+    /* 頻度 */
+    .freq-grid { display:grid; grid-template-columns:repeat(4,1fr); gap:6px; }
+    .freq-btn { display:flex; flex-direction:column; align-items:center; padding:8px 4px; border:2px solid #e2e8f0; border-radius:8px; background:#f7fafc; font-size:.82rem; font-weight:700; color:#4a5568; cursor:pointer; transition:all .15s; line-height:1.3; }
+    .freq-btn span { font-size:.65rem; font-weight:400; color:#a0aec0; margin-top:2px; }
+    .freq-btn.active { border-color:#805ad5; background:#e9d8fd; color:#553c9a; }
+    .freq-btn.active span { color:#805ad5; }
+
+    /* ボタン群 */
+    .btn-row { display:flex; gap:8px; flex-wrap:wrap; margin-bottom:12px; }
+    .btn { flex:1; min-width:100px; padding:10px; border:none; border-radius:8px; font-size:.88rem; font-weight:600; cursor:pointer; transition:opacity .15s; }
+    .btn-blue  { background:#2b6cb0; color:#fff; }
+    .btn-green { background:#276749; color:#fff; }
+    .btn-purple{ background:#553c9a; color:#fff; }
+    .btn-gray  { background:#e2e8f0; color:#4a5568; }
+    .btn:hover { opacity:.85; }
+
+    /* 保存一覧 */
+    .saved-list h3 { font-size:.82rem; color:#718096; margin-bottom:8px; }
+    .saved-item { display:flex; align-items:center; justify-content:space-between; padding:8px 10px; border:1px solid #e2e8f0; border-radius:8px; margin-bottom:6px; background:#f7fafc; font-size:.85rem; }
+    .saved-item-name { font-weight:600; color:#2d3748; }
+    .saved-item-meta { font-size:.72rem; color:#a0aec0; margin-top:2px; }
+    .saved-item-actions { display:flex; gap:6px; }
+    .load-btn  { padding:4px 10px; background:#ebf4ff; color:#2b6cb0; border:none; border-radius:6px; font-size:.78rem; font-weight:600; cursor:pointer; }
+    .remove-btn{ padding:4px 8px; background:#fed7d7; color:#c53030; border:none; border-radius:6px; font-size:.78rem; cursor:pointer; }
+    .empty-msg { font-size:.8rem; color:#a0aec0; text-align:center; padding:10px; }
+
+    /* 備考 */
+    textarea.remarks { width:100%; min-height:80px; padding:8px 10px; border:1px solid #cbd5e0; border-radius:8px; font-size:.9rem; outline:none; resize:vertical; font-family:inherit; }
+
+    /* ===== PRINT / 書類 ===== */
+    @media screen { #print-area { display:none; } }
+
+    @media print {
+      @page { margin:12mm 10mm; size:A4 portrait; }
+      #app { display:none !important; }
+      #print-area { display:block !important; }
+      body { background:#fff; padding:0; font-size:8.5pt; }
+      .doc-page { width:100%; padding:0; page-break-after:always; box-sizing:border-box; }
+      .doc-page:last-child { page-break-after:auto; }
+      .plan-table, .est-table { table-layout:fixed; width:100%; }
+      .plan-table th.rot { font-size:7pt; min-width:18px; }
+    }
+
+    /* 書類スタイル（画面プレビュー用も兼用） */
+    .doc-page { font-family:'Hiragino Sans','Meiryo',sans-serif; font-size:9pt; color:#000; }
+    .doc-title { text-align:center; font-size:18pt; font-weight:bold; letter-spacing:.3em; margin-bottom:10px; }
+    .doc-sub { font-size:10pt; margin-bottom:8px; }
+    .doc-sub span { margin-right:30px; }
+    .plan-table { width:100%; border-collapse:collapse; margin-bottom:12px; }
+    .plan-table { table-layout:fixed; width:100%; }
+    .plan-table th, .plan-table td { border:1px solid #333; text-align:center; padding:3px 2px; font-size:7.5pt; color:#000; word-break:break-all; }
+    .plan-table th { background:#e8e8e8; font-weight:bold; color:#000; }
+    .plan-table th.rot { writing-mode:vertical-rl; text-orientation:mixed; white-space:nowrap; padding:5px 2px; width:22px; font-size:7pt; }
+    .plan-table .col-area { width:70px; }
+    .plan-table .col-mat  { width:55px; }
+    .plan-table td:first-child { width:24px; }
+    .plan-table td:nth-child(4) { width:36px; }
+    .doc-notes { border:1px solid #999; padding:8px 10px; font-size:8pt; line-height:1.6; margin-top:8px; }
+    .doc-notes b { display:block; margin-bottom:4px; }
+
+    /* お見積書 */
+    .est-header { display:flex; justify-content:space-between; align-items:flex-start; margin-bottom:16px; }
+    .est-client .est-to { font-size:13pt; font-weight:bold; border-bottom:2px solid #000; padding-bottom:4px; margin-bottom:6px; }
+    .est-client .est-contact { font-size:9pt; }
+    .est-meta { text-align:right; font-size:9pt; }
+    .est-meta table { margin-left:auto; border-collapse:collapse; }
+    .est-meta td { padding:2px 6px; }
+    .est-title-row { display:flex; justify-content:space-between; align-items:flex-start; margin-bottom:16px; border-bottom:2px solid #000; padding-bottom:8px; }
+    .est-subject { font-size:10pt; font-weight:bold; }
+    .est-company { font-size:8pt; line-height:1.7; text-align:right; }
+    .est-total-row { display:flex; justify-content:space-between; align-items:center; margin-bottom:12px; padding:8px 0; border-top:2px solid #000; border-bottom:2px solid #000; }
+    .est-total-label { font-size:11pt; font-weight:bold; }
+    .est-total-amount { font-size:14pt; font-weight:bold; }
+    .est-table { width:100%; border-collapse:collapse; margin-bottom:12px; }
+    .est-table th, .est-table td { border:1px solid #333; padding:5px 6px; font-size:9pt; }
+    .est-table th { background:#dbe8f8; text-align:center; font-weight:bold; }
+    .est-table td.no { text-align:center; width:30px; }
+    .est-table td.num { text-align:right; }
+    .est-table tr.subtotal td { font-weight:bold; }
+    .est-table tr.total-row td { font-weight:bold; font-size:10pt; }
+    .est-remarks { border:1px solid #999; min-height:50px; padding:6px 8px; margin-bottom:12px; font-size:8.5pt; }
+    .est-remarks-label { font-weight:bold; background:#dbe8f8; padding:3px 6px; border:1px solid #999; border-bottom:none; font-size:8.5pt; }
+    .est-order { border-top:1px dashed #666; padding-top:10px; margin-top:10px; }
+    .est-order-title { text-align:center; font-size:11pt; font-weight:bold; letter-spacing:.2em; margin-bottom:10px; }
+    .est-order-grid { display:grid; grid-template-columns:1fr 1fr; gap:8px; font-size:8.5pt; }
+    .est-order-field { border-bottom:1px solid #999; padding-bottom:3px; }
+    .est-order-right { text-align:right; }
+    .est-order-sign { border:1px solid #999; height:50px; width:80px; margin-left:auto; display:flex; align-items:center; justify-content:center; font-size:8pt; color:#999; }
+
+    @media (max-width:500px) {
+      .result-grid { grid-template-columns:1fr 1fr; }
+      .result-box.hl,.result-box.hl2 { grid-column:1/-1; }
+      .freq-grid { grid-template-columns:repeat(3,1fr); }
+    }
+  </style>
+</head>
+<body>
+
+<!-- ===== APP ===== -->
+<div id="app">
+<h1>TS計算・書類作成</h1>
+
+<!-- 自社情報 -->
+<div class="card">
+  <h2>自社情報（保存されます）</h2>
+  <div class="row2">
+    <div><div class="field-label">会社名</div><input class="field-input" id="co-name" placeholder="株式会社リバテック"></div>
+    <div><div class="field-label">TEL</div><input class="field-input" id="co-tel" placeholder="080-3420-5918"></div>
+  </div>
+  <div style="margin-top:8px;" class="row2">
+    <div><div class="field-label">郵便番号・住所</div><input class="field-input" id="co-address" placeholder="〒150-0043 東京都渋谷区…"></div>
+    <div><div class="field-label">担当者名</div><input class="field-input" id="co-staff" placeholder="山本 蓮也"></div>
+  </div>
+  <div style="margin-top:8px;text-align:right;">
+    <button class="btn btn-blue" style="max-width:140px;" onclick="saveCompanyInfo()">自社情報を保存</button>
+  </div>
+</div>
+
+<!-- 見積情報 -->
+<div class="card">
+  <h2>見積情報</h2>
+  <div class="row2">
+    <div><div class="field-label">依頼元（会社名）</div><input class="field-input" id="clientName" placeholder="〇〇株式会社"></div>
+    <div><div class="field-label">ご担当者名</div><input class="field-input" id="contactName" placeholder="〇〇様"></div>
+  </div>
+  <div style="margin-top:8px;" class="row2">
+    <div><div class="field-label">物件名</div><input class="field-input" id="projectName" placeholder="〇〇ハイツ"></div>
+    <div><div class="field-label">見積No.</div><input class="field-input" id="estNo" placeholder="6600187"></div>
+  </div>
+  <div style="margin-top:8px;" class="row2">
+    <div><div class="field-label">お見積日</div><input class="field-input" id="estDate" type="date" oninput="autoSetExpiry()" onblur="if(!this.value){this.value=new Date().toISOString().split('T')[0];autoSetExpiry();}"></div>
+    <div><div class="field-label">お見積期限（お見積日の1ヶ月後・自動）</div><input class="field-input" id="estExpiry" type="date"></div>
+  </div>
+</div>
+
+<!-- 清掃種別 -->
+<div class="card">
+  <h2>清掃種別・一括設定</h2>
+  <p style="font-size:.78rem;color:#718096;margin-bottom:10px;">ボタンで全行一括変更。各行でも個別変更できます。</p>
+  <div class="type-row">
+    <button class="type-btn active-sweep" id="btn-sweep" onclick="setTypeAll('sweep')">掃き清掃のみ<br><small>÷ 4</small></button>
+    <button class="type-btn" id="btn-mop" onclick="setTypeAll('mop')">掃き拭き清掃<br><small>÷ 3</small></button>
+  </div>
+</div>
+
+<!-- 箇所入力 -->
+<div class="card">
+  <h2>箇所・エリアの平米入力</h2>
+  <div class="tbl-wrap">
+    <table>
+      <thead>
+        <tr>
+          <th style="width:52px;">階数</th>
+          <th>清掃箇所</th>
+          <th>床材</th>
+          <th style="width:90px;">清掃種別</th>
+          <th style="width:64px;">平米(㎡)</th>
+          <th style="width:64px;">TS</th>
+          <th style="width:40px;">入力</th>
+          <th style="width:38px;">作業</th>
+          <th style="width:36px;"></th>
+        </tr>
+      </thead>
+      <tbody id="areaTable"></tbody>
+    </table>
+  </div>
+  <button class="add-btn" onclick="addRow()">＋ 箇所を追加</button>
+</div>
+
+<!-- 集計結果 -->
+<div class="card">
+  <h2>集計結果</h2>
+  <div class="result-grid">
+    <div class="result-box"><div class="lbl">合計平米数</div><div class="val" id="totalSqm">0.00 ㎡</div></div>
+    <div class="result-box hl"><div class="lbl">合計 TS（作業時間）</div><div class="val" id="totalTs">0分</div></div>
+  </div>
+</div>
+
+<!-- 費用計算 -->
+<div class="card">
+  <h2>1日あたり費用計算</h2>
+  <div class="wage-row">
+    <label>時給（円）：</label>
+    <input type="number" id="hourlyWage" placeholder="例：2500" min="0" step="1" oninput="calculateWage()">
+  </div>
+  <div class="result-grid" id="wageResult" style="display:none;">
+    <div class="result-box"><div class="lbl">合計 TS（分）</div><div class="val" id="totalTsMin">—</div></div>
+    <div class="result-box"><div class="lbl">時給</div><div class="val" id="wageDisp">—</div></div>
+    <div class="result-box hl" style="background:#744210;"><div class="lbl">1日あたり費用</div><div class="val" id="dailyCost">—</div></div>
+  </div>
+  <p id="wageEmpty" style="font-size:.8rem;color:#a0aec0;text-align:center;padding:8px 0;">合計TSと時給を入力すると費用が表示されます</p>
+
+  <!-- 頻度 -->
+  <div id="freqSection" style="display:none;margin-top:18px;">
+    <div style="font-size:.88rem;font-weight:600;color:#4a5568;margin-bottom:10px;border-top:2px solid #ebf4ff;padding-top:14px;">清掃頻度・月額見積もり</div>
+    <div class="freq-grid">
+      <button class="freq-btn" onclick="setFreq(this,4.33)">週1回<span>月4.33回</span></button>
+      <button class="freq-btn" onclick="setFreq(this,9)">週2回<span>月9回</span></button>
+      <button class="freq-btn" onclick="setFreq(this,13)">週3回<span>月13回</span></button>
+      <button class="freq-btn" onclick="setFreq(this,17)">週4回<span>月17回</span></button>
+      <button class="freq-btn" onclick="setFreq(this,22)">週5回<span>月22回</span></button>
+      <button class="freq-btn" onclick="setFreq(this,25)">週6回<span>月25回</span></button>
+      <button class="freq-btn" onclick="setFreq(this,30)" style="grid-column:span 2;">毎日<span>月30回</span></button>
+    </div>
+    <div class="result-grid" id="monthlyResult" style="display:none;margin-top:12px;">
+      <div class="result-box"><div class="lbl">1日あたり費用</div><div class="val" id="dailyCostRef">—</div></div>
+      <div class="result-box"><div class="lbl">月間回数</div><div class="val" id="freqDisp">—</div></div>
+      <div class="result-box hl2"><div class="lbl">月額見積もり（税込）</div><div class="val" id="monthlyCost">—</div></div>
+    </div>
+  </div>
+</div>
+
+<!-- 備考 -->
+<div class="card">
+  <h2>備考</h2>
+  <textarea class="remarks" id="remarks" placeholder="備考・特記事項を入力してください"></textarea>
+</div>
+
+<!-- 保存・呼び出し -->
+<div class="card">
+  <h2>保存・出力</h2>
+  <div class="btn-row">
+    <button class="btn btn-blue"   onclick="saveData()">データを保存</button>
+    <button class="btn btn-green"  onclick="exportDoc()">書類を出力（2ページ）</button>
+    <button class="btn btn-purple" onclick="exportPdf()">PDF保存（現画面）</button>
+    <button class="btn btn-gray"   onclick="clearAll()">リセット</button>
+  </div>
+  <div class="saved-list">
+    <h3>保存済み一覧</h3>
+    <div id="savedList"></div>
+  </div>
+</div>
+</div><!-- #app -->
+
+<!-- ===== 書類出力エリア ===== -->
+<div id="print-area"></div>
+
+<script>
+  /* ===== 定数 ===== */
+  const areaOptions  = ['','エントランス','共用廊下','階段','ゴミ置き場','トイレ','外周','駐車場','ポーチ','その他'];
+  const floorOptions = ['','磁器タイル','Pタイル','御影石','塩ビシート','長尺シート','タイルカーペット','コンクリ','エンボス','石材','その他'];
+  const cleanTypes   = [{value:'sweep',label:'掃き ÷4',coeff:4},{value:'mop',label:'掃き拭き ÷3',coeff:3}];
+  const taskCols     = [
+    {key:'sweep',    label:'拾い掃き'},
+    {key:'vacuum',   label:'床面の除塵・吸塵'},
+    {key:'mop',      label:'床面の水拭き'},
+    {key:'handrail', label:'手すり・取手の清拭'},
+    {key:'glass',    label:'ガラスの清拭'},
+    {key:'shelf',    label:'平行面の清拭'},
+    {key:'drain',    label:'側溝・排水溝の清拭'},
+  ];
+  const toiletTaskCols = [
+    {key:'t_fixture', label:'衛生陶器の清掃'},
+    {key:'t_vacuum',  label:'床面の除塵・吸塵'},
+    {key:'t_wipe',    label:'床面の拭き掃除'},
+    {key:'t_sink',    label:'手洗いシンクの清掃'},
+    {key:'t_mirror',  label:'鏡の清拭'},
+    {key:'t_supply',  label:'消耗品補充'},
+  ];
+  const allTaskCols = [...taskCols, ...toiletTaskCols];
+  const taskFreqOpts = ['','毎日','6/週','5/週','4/週','3/週','2/週','1/週','その他'];
+  const freqLabelMap = {4.33:'1/週',9:'2/週',13:'3/週',17:'4/週',22:'5/週',25:'6/週',30:'毎日'};
+
+  /* ===== 状態 ===== */
+  let rowId       = 0;
+  let currentType = 'sweep';
+  let selectedFreq= null;
+
+  /* ===== ユーティリティ ===== */
+  function escHtml(s){ return String(s||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;'); }
+  function formatMin(min){ const m=Math.floor(min),s=Math.round((min-m)*60); return s>0?`${m}分${s}秒`:`${m}分`; }
+  function fmtYen(n){ return '¥'+Math.round(n).toLocaleString(); }
+
+  function makeOptions(opts, sel){
+    return opts.map(o=>`<option value="${o}" ${o===sel?'selected':''}>${o||'── 選択 ──'}</option>`).join('');
+  }
+  function makeCleanOpts(sel){
+    return cleanTypes.map(t=>`<option value="${t.value}" ${t.value===sel?'selected':''}>${t.label}</option>`).join('');
+  }
+  function makeTaskFreqOpts(sel){
+    return taskFreqOpts.map(o=>`<option value="${o}" ${o===sel?'selected':''}>${o||'─（なし）─'}</option>`).join('');
+  }
+  function makeSelectOther(opts, sel, otherText){
+    const isOther = sel==='その他';
+    return `
+      <select onchange="toggleOther(this);calculate();">${makeOptions(opts,sel)}</select>
+      <input type="text" class="other-input" placeholder="自由記載" value="${escHtml(otherText||'')}"
+        style="display:${isOther?'block':'none'};" oninput="calculate()">`;
+  }
+
+  function makeTaskItemHtml(id,t,tasks){
+    const sv=(tasks&&tasks[t.key])||'';
+    const isOth=sv&&!taskFreqOpts.includes(sv);
+    const selVal=isOth?'その他':sv;
+    return `<div class="task-item">
+      <label>${t.label}</label>
+      <select id="tsel-${id}-${t.key}" onchange="onTaskSelChange(${id},'${t.key}')">
+        ${makeTaskFreqOpts(selVal)}
+      </select>
+      <input type="text" class="task-free" id="tfree-${id}-${t.key}"
+        placeholder="自由記入" value="${isOth?escHtml(sv):''}"
+        style="display:${isOth?'block':'none'};"
+        oninput="saveTaskData(${id})">
+    </div>`;
+  }
+
+  function toggleOther(sel){
+    const inp=sel.parentElement.querySelector('.other-input');
+    if(!inp)return;
+    inp.style.display=sel.value==='その他'?'block':'none';
+    if(sel.value!=='その他')inp.value='';
+    calculate();
+  }
+
+  /* ===== 清掃種別 ===== */
+  function setTypeAll(type){
+    currentType=type;
+    document.getElementById('btn-sweep').className='type-btn'+(type==='sweep'?' active-sweep':'');
+    document.getElementById('btn-mop').className  ='type-btn'+(type==='mop'  ?' active-mop'  :'');
+    document.getElementById('areaTable').querySelectorAll('tr[id^="row-"]').forEach(tr=>{
+      const sel=tr.querySelectorAll('td')[3]?.querySelector('select');
+      if(sel)sel.value=type;
+    });
+    calculate();
+  }
+
+  /* ===== 行追加・削除 ===== */
+  function addRow(floor='',area='',areaOther='',mat='',matOther='',cleanType='sweep',sqm='',manualMin=null,tasks=null){
+    const id=rowId++;
+    const isManual=manualMin!==null&&manualMin!=='';
+    const tbody=document.getElementById('areaTable');
+
+    // メイン行
+    const tr=document.createElement('tr');
+    tr.id=`row-${id}`;
+    tr.dataset.manual=isManual?'1':'0';
+    tr.dataset.tasks=JSON.stringify(tasks||{});
+    tr.innerHTML=`
+      <td><input type="text" placeholder="例：3F" value="${escHtml(floor)}" oninput="calculate()"></td>
+      <td>${makeSelectOther(areaOptions,area,areaOther)}</td>
+      <td>${makeSelectOther(floorOptions,mat,matOther)}</td>
+      <td><select onchange="calculate()">${makeCleanOpts(cleanType)}</select></td>
+      <td><input type="number" placeholder="0.00" value="${sqm}" min="0" step="0.01" oninput="calculate()"
+        ${isManual?'style="opacity:.45;pointer-events:none;"':''}></td>
+      <td id="ts-${id}">
+        ${isManual
+          ?`<input type="number" class="ts-manual-input" placeholder="分" value="${escHtml(manualMin)}" min="0" step="1" oninput="calculate()">`
+          :`<span class="ts-val">—</span>`}
+      </td>
+      <td><button class="manual-btn${isManual?' on':''}" id="mbtn-${id}" onclick="toggleManual(${id})">${isManual?'手動':'自動'}</button></td>
+      <td><button class="task-btn${tasks&&Object.values(tasks).some(v=>v)?' has-tasks':''}" id="tbtn-${id}" onclick="toggleTaskPanel(${id})">作業</button></td>
+      <td><button class="del-btn" onclick="deleteRow(${id})">削除</button></td>
+    `;
+    tbody.appendChild(tr);
+
+    // 作業パネル行
+    const tp=document.createElement('tr');
+    tp.id=`task-panel-${id}`;
+    tp.style.display='none';
+    tp.innerHTML=`
+      <td colspan="9" style="padding:0;border:none;">
+        <div class="task-panel">
+          <div class="task-panel-head">
+            <span>作業内容の設定</span>
+            <button class="bulk-freq-btn" onclick="setAllTasksFreq(${id})">グローバル頻度で一括設定</button>
+          </div>
+          <div style="font-size:.75rem;font-weight:700;color:#2b6cb0;margin-bottom:4px;">日常清掃</div>
+          <div class="task-grid" id="tgrid-${id}" style="margin-bottom:10px;">
+            ${taskCols.map(t=>makeTaskItemHtml(id,t,tasks)).join('')}
+          </div>
+          <div style="font-size:.75rem;font-weight:700;color:#276749;margin-bottom:4px;">トイレ清掃</div>
+          <div class="task-grid" id="tgrid-toilet-${id}">
+            ${toiletTaskCols.map(t=>makeTaskItemHtml(id,t,tasks)).join('')}
+          </div>
+        </div>
+      </td>`;
+    tbody.appendChild(tp);
+    calculate();
+  }
+
+  function toggleManual(id){
+    const tr=document.getElementById(`row-${id}`);
+    const newM=tr.dataset.manual!=='1';
+    tr.dataset.manual=newM?'1':'0';
+    const sqmInp=tr.querySelectorAll('td')[4].querySelector('input');
+    const tsCell=document.getElementById(`ts-${id}`);
+    const btn=document.getElementById(`mbtn-${id}`);
+    if(newM){
+      sqmInp.style.opacity='.45'; sqmInp.style.pointerEvents='none';
+      tsCell.innerHTML=`<input type="number" class="ts-manual-input" placeholder="分" min="0" step="1" oninput="calculate()">`;
+      btn.textContent='手動'; btn.classList.add('on');
+    } else {
+      sqmInp.style.opacity=''; sqmInp.style.pointerEvents='';
+      tsCell.innerHTML=`<span class="ts-val">—</span>`;
+      btn.textContent='自動'; btn.classList.remove('on');
+    }
+    calculate();
+  }
+
+  function deleteRow(id){
+    ['row-','task-panel-'].forEach(p=>{ const el=document.getElementById(p+id); if(el)el.remove(); });
+    calculate();
+  }
+
+  function toggleTaskPanel(id){
+    const tp=document.getElementById(`task-panel-${id}`);
+    if(!tp)return;
+    tp.style.display=tp.style.display==='none'?'':'none';
+  }
+
+  function onTaskSelChange(id,key){
+    const sel=document.getElementById(`tsel-${id}-${key}`);
+    const free=document.getElementById(`tfree-${id}-${key}`);
+    if(!sel||!free)return;
+    free.style.display=sel.value==='その他'?'block':'none';
+    if(sel.value!=='その他')free.value='';
+    saveTaskData(id);
+  }
+
+  function saveTaskData(id){
+    const tr=document.getElementById(`row-${id}`);
+    if(!tr)return;
+    const tasks={};
+    allTaskCols.forEach(t=>{
+      const sel=document.getElementById(`tsel-${id}-${t.key}`);
+      const free=document.getElementById(`tfree-${id}-${t.key}`);
+      tasks[t.key]=sel?.value==='その他'?(free?.value||''):(sel?.value||'');
+    });
+    tr.dataset.tasks=JSON.stringify(tasks);
+    const btn=document.getElementById(`tbtn-${id}`);
+    if(btn) btn.className='task-btn'+(Object.values(tasks).some(v=>v)?' has-tasks':'');
+  }
+
+  function setAllTasksFreq(id){
+    const label=freqLabelMap[selectedFreq]||'';
+    allTaskCols.forEach(t=>{
+      const sel=document.getElementById(`tsel-${id}-${t.key}`);
+      const free=document.getElementById(`tfree-${id}-${t.key}`);
+      if(!sel)return;
+      if(label&&taskFreqOpts.includes(label)){
+        sel.value=label;
+      } else if(label){
+        sel.value='その他';
+        if(free){free.value=label;free.style.display='block';}
+      }
+      if(free&&sel.value!=='その他')free.style.display='none';
+    });
+    saveTaskData(id);
+  }
+
+  /* ===== 係数・TS計算 ===== */
+  function getRowCoeff(tr){
+    const sel=tr.querySelectorAll('td')[3]?.querySelector('select');
+    return cleanTypes.find(t=>t.value===(sel?.value||'sweep'))?.coeff||4;
+  }
+
+  function getRowTsHours(tr){
+    if(tr.dataset.manual==='1'){
+      const inp=tr.querySelector('.ts-manual-input');
+      return (parseFloat(inp?.value)||0)/60;
+    }
+    const sqm=parseFloat(tr.querySelectorAll('td')[4]?.querySelector('input')?.value)||0;
+    return sqm>0?(sqm/getRowCoeff(tr))/60:0;
+  }
+
+  function calculate(){
+    const rows=document.getElementById('areaTable').querySelectorAll('tr[id^="row-"]');
+    let totalSqm=0, totalTsH=0;
+    rows.forEach(tr=>{
+      const isM=tr.dataset.manual==='1';
+      const sqm=parseFloat(tr.querySelectorAll('td')[4]?.querySelector('input')?.value)||0;
+      if(!isM)totalSqm+=sqm;
+      const tsH=getRowTsHours(tr);
+      totalTsH+=tsH;
+      if(!isM){
+        const span=tr.querySelector('.ts-val');
+        if(span)span.textContent=sqm>0?formatMin(sqm/getRowCoeff(tr)):'—';
+      }
+    });
+    document.getElementById('totalSqm').textContent=totalSqm.toFixed(2)+' ㎡';
+    document.getElementById('totalTs').textContent=totalTsH>0?formatMin(totalTsH*60):'0分';
+    calculateWage(totalTsH*60);
+  }
+
+  function calculateWage(totalTsMin){
+    if(totalTsMin===undefined){
+      const rows=document.getElementById('areaTable').querySelectorAll('tr[id^="row-"]');
+      let h=0; rows.forEach(tr=>h+=getRowTsHours(tr));
+      totalTsMin=h*60;
+    }
+    const wage=parseFloat(document.getElementById('hourlyWage').value);
+    const hasTs=totalTsMin>0, hasW=!isNaN(wage)&&wage>0;
+    document.getElementById('wageResult').style.display  =(hasTs&&hasW)?'grid':'none';
+    document.getElementById('wageEmpty').style.display   =(hasTs&&hasW)?'none':'block';
+    document.getElementById('freqSection').style.display =(hasTs&&hasW)?'block':'none';
+    if(hasTs&&hasW){
+      const cost=(totalTsMin/60)*wage;
+      document.getElementById('totalTsMin').textContent=Math.round(totalTsMin)+' 分';
+      document.getElementById('wageDisp').textContent=fmtYen(wage)+' /h';
+      document.getElementById('dailyCost').textContent=fmtYen(cost);
+      updateMonthly(cost);
+    } else {
+      document.getElementById('monthlyResult').style.display='none';
+    }
+  }
+
+  function setFreq(btn,freq){
+    selectedFreq=freq;
+    document.querySelectorAll('.freq-btn').forEach(b=>b.classList.remove('active'));
+    btn.classList.add('active');
+    const rows=document.getElementById('areaTable').querySelectorAll('tr[id^="row-"]');
+    let h=0; rows.forEach(tr=>h+=getRowTsHours(tr));
+    const wage=parseFloat(document.getElementById('hourlyWage').value)||0;
+    updateMonthly(h*wage);
+  }
+
+  function updateMonthly(dailyCost){
+    if(!selectedFreq){document.getElementById('monthlyResult').style.display='none';return;}
+    const monthly=dailyCost*selectedFreq;
+    const fl=selectedFreq%1!==0?selectedFreq.toFixed(2)+' 回':selectedFreq+' 回';
+    document.getElementById('dailyCostRef').textContent=fmtYen(dailyCost);
+    document.getElementById('freqDisp').textContent='月 '+fl;
+    document.getElementById('monthlyCost').textContent=fmtYen(monthly*1.1);
+    document.getElementById('monthlyResult').style.display='grid';
+  }
+
+  /* ===== 自社情報 ===== */
+  function saveCompanyInfo(){
+    const info={name:v('co-name'),tel:v('co-tel'),address:v('co-address'),staff:v('co-staff')};
+    localStorage.setItem('ts_company',JSON.stringify(info));
+    alert('自社情報を保存しました。');
+  }
+  const REMARKS_DEFAULT = `清掃に使用する資機材、ケミカルにつきましては、弊社持ち込みでご対応させていただきます。水源・電源等、作業に必要となる資源はお客様負担で利用をさせていただきます。
+※特定の物(資機材・ケミカル)の使用が必要な場合は、お客様にてご用意をお願いしております。
+「休日の取決め」
+土・日・祝日　お盆：8月14・15・16日　年末年始：12月30・31日、1月1、2、3日
+その他貴社会社カレンダー
+上記日程はお休みを頂戴いたします。振替でのご対応は致しかねます。`;
+
+  const CO_DEFAULTS = {
+    name:    '株式会社リバテック',
+    tel:     '080-3420-5918',
+    address: '〒150-0043\n東京都渋谷区道玄坂1丁目10番8号\n渋谷道玄坂東急ビル2F-C',
+    staff:   '山本　蓮也',
+  };
+
+  function loadCompanyInfo(){
+    try{
+      const saved=JSON.parse(localStorage.getItem('ts_company')||'{}');
+      const info=Object.assign({},CO_DEFAULTS,saved);
+      document.getElementById('co-name').value    =info.name;
+      document.getElementById('co-tel').value     =info.tel;
+      document.getElementById('co-address').value =info.address.replace(/\n/g,' ');
+      document.getElementById('co-staff').value   =info.staff;
+    }catch(e){
+      document.getElementById('co-name').value    =CO_DEFAULTS.name;
+      document.getElementById('co-tel').value     =CO_DEFAULTS.tel;
+      document.getElementById('co-address').value =CO_DEFAULTS.address;
+      document.getElementById('co-staff').value   =CO_DEFAULTS.staff;
+    }
+  }
+
+  /* お見積期限：お見積日の1ヶ月後を自動セット */
+  function autoSetExpiry(){
+    const d=document.getElementById('estDate').value;
+    if(!d)return;
+    const dt=new Date(d);
+    dt.setMonth(dt.getMonth()+1);
+    document.getElementById('estExpiry').value=dt.toISOString().split('T')[0];
+  }
+
+  /* 見積No 自動採番 */
+  function getNextEstNo(){
+    const n=(parseInt(localStorage.getItem('ts_estno')||'0')+1);
+    return String(n).padStart(6,'0');
+  }
+  function incrementEstNo(){
+    const n=parseInt(localStorage.getItem('ts_estno')||'0')+1;
+    localStorage.setItem('ts_estno',String(n));
+    return String(n).padStart(6,'0');
+  }
+  function v(id){return document.getElementById(id)?.value||'';}
+
+  /* 書類出力時の値（フィールドが空ならデフォルト値を使用） */
+  function vDoc(id){ return document.getElementById(id)?.value.trim()||''; }
+  function coVal(id,def){ return vDoc(id)||def; }
+
+  /* ===== 書類出力 ===== */
+  function buildPrintArea(){
+    const rows=document.getElementById('areaTable').querySelectorAll('tr[id^="row-"]');
+    const wage=parseFloat(document.getElementById('hourlyWage').value)||0;
+    let totalTsH=0;
+    rows.forEach(tr=>totalTsH+=getRowTsHours(tr));
+    const dailyCost=totalTsH*wage;
+    const monthly=selectedFreq?dailyCost*selectedFreq:0;
+    const monthlyTax=Math.round(monthly*1.1);
+    const monthlySub=Math.round(monthly);
+    const monthlyTaxAmt=monthlyTax-monthlySub;
+    const freqText=freqLabelMap[selectedFreq]||(selectedFreq?selectedFreq+'/月':'—');
+
+    // 自社情報（未入力ならデフォルト）
+    const coName    =vDoc('co-name')    ||CO_DEFAULTS.name;
+    const coTel     =vDoc('co-tel')     ||CO_DEFAULTS.tel;
+    const coStaff   =vDoc('co-staff')   ||CO_DEFAULTS.staff;
+    // 住所：フィールド値がデフォルトと同じ（スペース区切り）か空の場合は改行あり版を使用
+    const _coAddrRaw=vDoc('co-address');
+    const coAddress =_coAddrRaw&&_coAddrRaw!==CO_DEFAULTS.address.replace(/\n/g,' ')
+      ? _coAddrRaw : CO_DEFAULTS.address;
+
+    // ---- 業務実施計画書 ----
+    // どの列に値があるか判定
+    const hasRegular ={};
+    const hasToilet  ={};
+    taskCols.forEach(t=>hasRegular[t.key]=false);
+    toiletTaskCols.forEach(t=>hasToilet[t.key]=false);
+    const dataRows=[];
+    rows.forEach(tr=>{
+      const tds=tr.querySelectorAll('td');
+      const areaSel=tds[1].querySelector('select')?.value||'';
+      const areaFree=tds[1].querySelector('.other-input')?.value||'';
+      const areaText=areaSel==='その他'?areaFree:areaSel;
+      const sqm=tds[4].querySelector('input')?.value||'';
+      const tsH=getRowTsHours(tr);
+      if(!areaText&&!sqm&&!tsH)return;
+      const tasks=JSON.parse(tr.dataset.tasks||'{}');
+      taskCols.forEach(t=>{ if(tasks[t.key])hasRegular[t.key]=true; });
+      toiletTaskCols.forEach(t=>{ if(tasks[t.key])hasToilet[t.key]=true; });
+      dataRows.push({tr,tasks,areaText,sqm});
+    });
+
+    const activeRegular=taskCols.filter(t=>hasRegular[t.key]);
+    const activeToilet =toiletTaskCols.filter(t=>hasToilet[t.key]);
+    const showRegular  =activeRegular.length>0;
+    const showToilet   =activeToilet.length>0;
+    const totalTaskCols=(showRegular?activeRegular.length:0)+(showToilet?activeToilet.length:0);
+
+    // ヘッダー行
+    let thRow2='';
+    let headRow1Colspan=totalTaskCols||1;
+    if(showRegular) activeRegular.forEach(t=>thRow2+=`<th class="rot">${t.label}</th>`);
+    if(showToilet)  activeToilet.forEach(t=>thRow2+=`<th class="rot">${t.label}</th>`);
+
+    // サブヘッダー（トイレ清掃あり）
+    let subHeader='';
+    if(showToilet){
+      subHeader=`<tr>
+        ${showRegular?`<th colspan="${activeRegular.length}"></th>`:''}
+        <th colspan="${activeToilet.length}" style="background:#c8e6c9;">トイレ清掃</th>
+      </tr>`;
+    }
+
+    // データ行
+    let rowsHtml='';
+    dataRows.forEach(({tr,tasks,areaText,sqm})=>{
+      const tds=tr.querySelectorAll('td');
+      const floor  =tds[0].querySelector('input')?.value||'';
+      const matSel =tds[2].querySelector('select')?.value||'';
+      const matFree=tds[2].querySelector('.other-input')?.value||'';
+      const matText=matSel==='その他'?matFree:matSel;
+      let taskCells='';
+      if(showRegular) activeRegular.forEach(t=>taskCells+=`<td>${escHtml(tasks[t.key]||'')}</td>`);
+      if(showToilet)  activeToilet.forEach(t=>taskCells+=`<td>${escHtml(tasks[t.key]||'')}</td>`);
+      rowsHtml+=`<tr>
+        <td>${escHtml(floor)}</td>
+        <td class="col-area">${escHtml(areaText)}</td>
+        <td class="col-mat">${escHtml(matText)}</td>
+        <td>${escHtml(sqm)}</td>
+        ${taskCells||'<td></td>'}
+      </tr>`;
+    });
+    // 最低8行
+    for(let i=dataRows.length;i<8;i++)
+      rowsHtml+=`<tr><td></td><td></td><td></td><td></td>${Array(Math.max(totalTaskCols,1)).fill('<td></td>').join('')}</tr>`;
+
+    const page1=`
+    <div class="doc-page">
+      <h1 class="doc-title">業　務　実　施　計　画　書</h1>
+      <div class="doc-sub">
+        <span>物件名：<b>${escHtml(vDoc('projectName'))}</b></span>
+        <span style="margin-left:20px;">${escHtml(vDoc('clientName'))}</span>
+      </div>
+      <table class="plan-table">
+        <thead>
+          <tr>
+            <th rowspan="${showToilet?3:2}">階</th>
+            <th rowspan="${showToilet?3:2}" class="col-area">清掃箇所</th>
+            <th rowspan="${showToilet?3:2}" class="col-mat">床材</th>
+            <th rowspan="${showToilet?3:2}">広さ(㎡)</th>
+            <th colspan="${headRow1Colspan}">日常清掃</th>
+          </tr>
+          ${subHeader}
+          <tr>${thRow2}</tr>
+        </thead>
+        <tbody>${rowsHtml}</tbody>
+      </table>
+      <div class="doc-notes">
+        <b>【備考】</b>
+        ${escHtml(vDoc('remarks')||REMARKS_DEFAULT).replace(/\n/g,'<br>')}
+      </div>
+    </div>`;
+
+    // ---- お見積書 ----
+    const today=new Date().toLocaleDateString('ja-JP',{year:'numeric',month:'long',day:'numeric'});
+    const page2=`
+    <div class="doc-page">
+      <h2 style="text-align:center;font-size:14pt;letter-spacing:.1em;margin-bottom:14px;">清掃に関するお見積書</h2>
+      <div class="est-header">
+        <div class="est-client">
+          <div class="est-to">${escHtml(v('clientName'))}　御中</div>
+          <div class="est-contact">ご担当：<b>${escHtml(v('contactName'))}</b>　様</div>
+        </div>
+        <div class="est-meta">
+          <table><tbody>
+            <tr><td>見積No.</td><td><b>${escHtml(v('estNo'))}</b></td></tr>
+            <tr><td>お見積日</td><td><b>${escHtml(vDoc('estDate')||new Date().toISOString().split('T')[0])}</b></td></tr>
+          </tbody></table>
+        </div>
+      </div>
+      <div class="est-title-row">
+        <div>
+          <div class="est-subject">件名：　清掃に関するお見積書</div>
+          <div style="font-size:8.5pt;margin-top:4px;">下記の通り、お見積り申し上げます。</div>
+        </div>
+        <div class="est-company">
+          <b>${escHtml(coName)}</b><br>
+          ${escHtml(coAddress).replace(/\n/g,'<br>')}<br>
+          TEL:${escHtml(coTel)}<br>
+          担当:${escHtml(coStaff)}
+        </div>
+      </div>
+      <div class="est-total-row">
+        <div class="est-total-label">月額合計金額　<span class="est-total-amount">${fmtYen(monthlyTax)}</span>　（税込）</div>
+        <div style="font-size:9pt;">お見積期限　<b>${escHtml(v('estExpiry'))}</b></div>
+      </div>
+      <table class="est-table">
+        <thead>
+          <tr><th style="width:30px;">No.</th><th>摘要</th><th style="width:100px;">実施回数</th><th style="width:80px;">単価</th><th style="width:80px;">月額</th></tr>
+        </thead>
+        <tbody>
+          <tr>
+            <td class="no">1</td>
+            <td>日常清掃</td>
+            <td style="text-align:center;">${escHtml(freqText)}</td>
+            <td class="num">${fmtYen(monthlySub)}</td>
+            <td class="num">${fmtYen(monthlySub)}</td>
+          </tr>
+          ${Array(4).fill('<tr><td></td><td></td><td></td><td></td><td></td></tr>').join('')}
+        </tbody>
+        <tfoot>
+          <tr class="subtotal"><td colspan="4" style="text-align:right;font-weight:bold;">小計</td><td class="num">${fmtYen(monthlySub)}</td></tr>
+          <tr class="subtotal"><td colspan="4" style="text-align:right;font-weight:bold;">消費税</td><td class="num">${fmtYen(monthlyTaxAmt)}</td></tr>
+          <tr class="total-row"><td colspan="4" style="text-align:right;font-weight:bold;">月額合計</td><td class="num"><b>${fmtYen(monthlyTax)}</b></td></tr>
+        </tfoot>
+      </table>
+      <div class="est-remarks-label">備考</div>
+      <div class="est-remarks">${escHtml(vDoc('remarks')||REMARKS_DEFAULT).replace(/\n/g,'<br>')}</div>
+      <div class="est-order">
+        <div class="est-order-title">発　注　欄</div>
+        <div class="est-order-grid">
+          <div><div class="est-order-field">記入日：　　　年　　月　　日</div></div>
+          <div><div class="est-order-field">清掃開始希望日：</div></div>
+          <div><div class="est-order-field">支払い方法：振込　当月末締　翌月末払</div></div>
+          <div>
+            <div class="est-order-field">貴社名：</div>
+            <div class="est-order-field" style="margin-top:6px;">ご担当者名：</div>
+            <div class="est-order-right"><div class="est-order-sign">印</div></div>
+          </div>
+        </div>
+      </div>
+    </div>`;
+
+    document.getElementById('print-area').innerHTML=page1+page2;
+  }
+
+  function exportDoc(){
+    // 出力のたびに見積Noを確定・インクリメント
+    const no=incrementEstNo();
+    document.getElementById('estNo').value=no;
+    buildPrintArea();
+    setTimeout(()=>window.print(),100);
+  }
+
+  function exportPdf(){
+    // 現画面をそのまま印刷（print-areaは非表示のまま）
+    document.getElementById('print-area').innerHTML='';
+    window.print();
+  }
+
+  /* ===== データ保存・呼び出し ===== */
+  function collectRows(){
+    const rows=[];
+    document.getElementById('areaTable').querySelectorAll('tr[id^="row-"]').forEach(tr=>{
+      const isM=tr.dataset.manual==='1';
+      const tds=tr.querySelectorAll('td');
+      rows.push({
+        floor:     tds[0].querySelector('input')?.value||'',
+        area:      tds[1].querySelector('select')?.value||'',
+        areaOther: tds[1].querySelector('.other-input')?.value||'',
+        mat:       tds[2].querySelector('select')?.value||'',
+        matOther:  tds[2].querySelector('.other-input')?.value||'',
+        cleanType: tds[3].querySelector('select')?.value||'sweep',
+        sqm:       isM?'':(tds[4].querySelector('input')?.value||''),
+        manual:    isM,
+        manualMin: isM?(tr.querySelector('.ts-manual-input')?.value||''):null,
+        tasks:     JSON.parse(tr.dataset.tasks||'{}'),
+      });
+    });
+    return rows;
+  }
+
+  function saveData(){
+    const name=v('projectName').trim();
+    if(!name){alert('物件名を入力してください。');return;}
+    const record={
+      id:         Date.now(),
+      clientName: v('clientName'),
+      contactName:v('contactName'),
+      projectName:name,
+      estNo:      v('estNo'),
+      estDate:    v('estDate'),
+      estExpiry:  v('estExpiry'),
+      type:       currentType,
+      hourlyWage: parseFloat(v('hourlyWage'))||'',
+      freq:       selectedFreq,
+      remarks:    v('remarks'),
+      rows:       collectRows(),
+      savedAt:    new Date().toLocaleString('ja-JP'),
+    };
+    const list=getSavedList();
+    const idx=list.findIndex(r=>r.projectName===name);
+    if(idx>=0){
+      if(!confirm(`「${name}」は既に保存されています。上書きしますか？`))return;
+      list[idx]=record;
+    } else {
+      list.unshift(record);
+    }
+    localStorage.setItem('ts_saves',JSON.stringify(list));
+    renderSavedList();
+    alert('保存しました。');
+  }
+
+  function loadData(id){
+    const rec=getSavedList().find(r=>r.id===id);
+    if(!rec)return;
+    document.getElementById('clientName').value  =rec.clientName||'';
+    document.getElementById('contactName').value =rec.contactName||'';
+    document.getElementById('projectName').value =rec.projectName||'';
+    document.getElementById('estNo').value       =rec.estNo||'';
+    document.getElementById('estDate').value     =rec.estDate||'';
+    document.getElementById('estExpiry').value   =rec.estExpiry||'';
+    document.getElementById('hourlyWage').value  =rec.hourlyWage||'';
+    document.getElementById('remarks').value     =rec.remarks||'';
+    currentType=rec.type||'sweep';
+    document.getElementById('btn-sweep').className='type-btn'+(currentType==='sweep'?' active-sweep':'');
+    document.getElementById('btn-mop').className  ='type-btn'+(currentType==='mop'  ?' active-mop'  :'');
+    selectedFreq=rec.freq||null;
+    document.querySelectorAll('.freq-btn').forEach(btn=>{
+      const f=parseFloat(btn.getAttribute('onclick').match(/setFreq\(this,([\d.]+)\)/)?.[1]);
+      btn.classList.toggle('active',f===selectedFreq);
+    });
+    document.getElementById('areaTable').innerHTML='';
+    rowId=0;
+    (rec.rows||[]).forEach(r=>addRow(r.floor||'',r.area||'',r.areaOther||'',r.mat||'',r.matOther||'',r.cleanType||'sweep',r.sqm||'',r.manual?(r.manualMin??''):null,r.tasks||{}));
+    calculate();
+  }
+
+  function removeData(id){
+    if(!confirm('この保存データを削除しますか？'))return;
+    localStorage.setItem('ts_saves',JSON.stringify(getSavedList().filter(r=>r.id!==id)));
+    renderSavedList();
+  }
+
+  function getSavedList(){ try{return JSON.parse(localStorage.getItem('ts_saves'))||[];}catch{return[];} }
+
+  function renderSavedList(){
+    const list=getSavedList();
+    const el=document.getElementById('savedList');
+    if(!list.length){el.innerHTML='<div class="empty-msg">保存データがありません</div>';return;}
+    el.innerHTML=list.map(r=>`
+      <div class="saved-item">
+        <div>
+          <div class="saved-item-name">${r.clientName?escHtml(r.clientName)+' ／ ':''}${escHtml(r.projectName)}</div>
+          <div class="saved-item-meta">${r.type==='sweep'?'掃き清掃':'掃き拭き清掃'} ／ 保存: ${r.savedAt}</div>
+        </div>
+        <div class="saved-item-actions">
+          <button class="load-btn"   onclick="loadData(${r.id})">呼び出し</button>
+          <button class="remove-btn" onclick="removeData(${r.id})">削除</button>
+        </div>
+      </div>`).join('');
+  }
+
+  function clearAll(){
+    if(!confirm('入力内容をすべてリセットしますか？'))return;
+    ['clientName','contactName','projectName','estNo','estDate','estExpiry','hourlyWage'].forEach(id=>{
+      const el=document.getElementById(id); if(el)el.value='';
+    });
+    document.getElementById('remarks').value=REMARKS_DEFAULT;
+    document.getElementById('areaTable').innerHTML='';
+    document.getElementById('wageResult').style.display='none';
+    document.getElementById('wageEmpty').style.display='block';
+    document.getElementById('freqSection').style.display='none';
+    document.getElementById('monthlyResult').style.display='none';
+    document.querySelectorAll('.freq-btn').forEach(b=>b.classList.remove('active'));
+    selectedFreq=null; rowId=0;
+    document.getElementById('estNo').value=getNextEstNo();
+    const td=new Date().toISOString().split('T')[0];
+    document.getElementById('estDate').value=td;
+    autoSetExpiry();
+    setTypeAll('sweep');
+    for(let i=0;i<10;i++)addRow();
+  }
+
+  /* ===== 初期化 ===== */
+  loadCompanyInfo();
+  document.getElementById('remarks').value=REMARKS_DEFAULT;
+  // 見積No（次の番号をプレビュー表示）
+  document.getElementById('estNo').value=getNextEstNo();
+  // 本日日付をデフォルトセット
+  const today=new Date().toISOString().split('T')[0];
+  document.getElementById('estDate').value=today;
+  autoSetExpiry();
+  for(let i=0;i<10;i++)addRow();
+  renderSavedList();
+</script>
+</body>
+</html>
