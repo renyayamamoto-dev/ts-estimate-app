@@ -107,6 +107,8 @@
       @page { margin:12mm 10mm; size:A4 portrait; }
       #app { display:none !important; }
       #print-area { display:block !important; }
+      body.print-screen #app { display:block !important; }
+      body.print-screen #print-area { display:none !important; }
       body { background:#fff; padding:0; font-size:8.5pt; }
       .doc-page { width:100%; padding:0; page-break-after:always; box-sizing:border-box; }
       .doc-page:last-child { page-break-after:auto; }
@@ -854,8 +856,10 @@
   }
 
   function exportPdf(){
-    buildPrintArea();
+    document.getElementById('print-area').innerHTML='';
+    document.body.classList.add('print-screen');
     window.print();
+    document.body.classList.remove('print-screen');
   }
 
   /* ===== データ保存・呼び出し ===== */
