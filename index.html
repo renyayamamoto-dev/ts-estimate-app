@@ -854,8 +854,7 @@
   }
 
   function exportPdf(){
-    // 現画面をそのまま印刷（print-areaは非表示のまま）
-    document.getElementById('print-area').innerHTML='';
+    buildPrintArea();
     window.print();
   }
 
